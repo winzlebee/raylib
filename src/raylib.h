@@ -1734,6 +1734,10 @@ RLAPI void DetachAudioStreamProcessor(AudioStream stream, AudioCallback processo
 RLAPI void AttachAudioMixedProcessor(AudioCallback processor); // Attach audio stream processor to the entire audio pipeline, receives frames x 2 samples as 'float' (stereo)
 RLAPI void DetachAudioMixedProcessor(AudioCallback processor); // Detach audio stream processor from the entire audio pipeline
 
+#ifdef PLATFORM_ANDROID
+RLAPI struct android_app *GetAndroidApp(void);
+#endif
+
 #if defined(__cplusplus)
 }
 #endif
