@@ -111,6 +111,7 @@
 //----------------------------------------------------------------------------------
 typedef struct {
     GLFWwindow *handle;                 // GLFW window handle (graphic device)
+    bool touchInputSupported;           // Whether we support touch input
 } PlatformData;
 
 //----------------------------------------------------------------------------------
@@ -146,6 +147,7 @@ static void MouseButtonCallback(GLFWwindow *window, int button, int action, int 
 static void MouseCursorPosCallback(GLFWwindow *window, double x, double y);             // GLFW3 Cursor Position Callback, runs on mouse move
 static void MouseScrollCallback(GLFWwindow *window, double xoffset, double yoffset);    // GLFW3 Scrolling Callback, runs on mouse wheel
 static void CursorEnterCallback(GLFWwindow *window, int enter);                         // GLFW3 Cursor Enter Callback, cursor enters client area
+static void TouchCallback(GLFWwindow *window, int id, int action, double xpos, double ypos); // GLFW3 Touch Callback, runs on touch events
 static void JoystickCallback(int jid, int event);                                       // GLFW3 Joystick Connected/Disconnected Callback
 
 // Memory allocator wrappers [used by glfwInitAllocator()]
@@ -1300,7 +1302,9 @@ void PollInputEvents(void)
     // TODO: GLFW does not support multi-touch input yet
     // REF: https://www.codeproject.com/Articles/668404/Programming-for-Multi-Touch
     // REF: https://docs.microsoft.com/en-us/windows/win32/wintouch/getting-started-with-multi-touch-messages
-    CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
+    if (!platform.touchInputSupported) {
+        CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
+    }
 
     // Check if gamepads are ready
     // NOTE: Doing it here in case of disconnection
@@ -1792,6 +1796,9 @@ int InitPlatform(void)
         return -1;
     }
 
+    // Set whether we can support touch inputs
+    platform.touchInputSupported = glfwTouchInputSupported();
+
     // Apply window flags requested previous to initialization
     SetWindowState(requestedWindowFlags);
 
@@ -1819,6 +1826,7 @@ int InitPlatform(void)
     glfwSetCursorPosCallback(platform.handle, MouseCursorPosCallback); // Track mouse position changes
     glfwSetScrollCallback(platform.handle, MouseScrollCallback);
     glfwSetCursorEnterCallback(platform.handle, CursorEnterCallback);
+    if (glfwTouchInputSupported()) glfwSetTouchCallback(platform.handle, TouchCallback);
     glfwSetJoystickCallback(JoystickCallback);
     glfwSetInputMode(platform.handle, GLFW_LOCK_KEY_MODS, GLFW_TRUE); // Enable lock keys modifiers (CAPS, NUM)
 
@@ -2101,33 +2109,38 @@ static void MouseButtonCallback(GLFWwindow *window, int button, int action, int 
     // WARNING: GLFW could only return GLFW_PRESS (1) or GLFW_RELEASE (0) for now,
     // but future releases may add more actions (i.e. GLFW_REPEAT)
     CORE.Input.Mouse.currentButtonState[button] = action;
-    CORE.Input.Touch.currentTouchState[button] = action;
+
+    if (!platform.touchInputSupported) {
+        CORE.Input.Touch.currentTouchState[button] = action;
+    }
 
 #if SUPPORT_GESTURES_SYSTEM && SUPPORT_MOUSE_GESTURES
-    // Process mouse events as touches to be able to use mouse-gestures
-    GestureEvent gestureEvent = { 0 };
+    if (!platform.touchInputSupported) {
+        // Process mouse events as touches to be able to use mouse-gestures
+        GestureEvent gestureEvent = { 0 };
 
-    // Register touch actions
-    if ((CORE.Input.Mouse.currentButtonState[button] == 1) && (CORE.Input.Mouse.previousButtonState[button] == 0)) gestureEvent.touchAction = TOUCH_ACTION_DOWN;
-    else if ((CORE.Input.Mouse.currentButtonState[button] == 0) && (CORE.Input.Mouse.previousButtonState[button] == 1)) gestureEvent.touchAction = TOUCH_ACTION_UP;
+        // Register touch actions
+        if ((CORE.Input.Mouse.currentButtonState[button] == 1) && (CORE.Input.Mouse.previousButtonState[button] == 0)) gestureEvent.touchAction = TOUCH_ACTION_DOWN;
+        else if ((CORE.Input.Mouse.currentButtonState[button] == 0) && (CORE.Input.Mouse.previousButtonState[button] == 1)) gestureEvent.touchAction = TOUCH_ACTION_UP;
 
-    // NOTE: TOUCH_ACTION_MOVE event is registered in MouseCursorPosCallback()
+        // NOTE: TOUCH_ACTION_MOVE event is registered in MouseCursorPosCallback()
 
-    // Assign a pointer ID
-    gestureEvent.pointId[0] = 0;
+        // Assign a pointer ID
+        gestureEvent.pointId[0] = 0;
 
-    // Register touch points count
-    gestureEvent.pointCount = 1;
+        // Register touch points count
+        gestureEvent.pointCount = 1;
 
-    // Register touch points position, only one point registered
-    gestureEvent.position[0] = GetMousePosition();
+        // Register touch points position, only one point registered
+        gestureEvent.position[0] = GetMousePosition();
 
-    // Normalize gestureEvent.position[0] for CORE.Window.screen.width and CORE.Window.screen.height
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+        // Normalize gestureEvent.position[0] for CORE.Window.screen.width and CORE.Window.screen.height
+        gestureEvent.position[0].x /= (float)GetScreenWidth();
+        gestureEvent.position[0].y /= (float)GetScreenHeight();
 
-    // Gesture data is sent to gestures-system for processing
-    ProcessGestureEvent(gestureEvent);
+        // Gesture data is sent to gestures-system for processing
+        ProcessGestureEvent(gestureEvent);
+    }
 #endif
 }
 
@@ -2136,29 +2149,34 @@ static void MouseCursorPosCallback(GLFWwindow *window, double x, double y)
 {
     CORE.Input.Mouse.currentPosition.x = (float)x;
     CORE.Input.Mouse.currentPosition.y = (float)y;
-    CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
+
+    if (!platform.touchInputSupported) {
+        CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
+    }
 
 #if SUPPORT_GESTURES_SYSTEM && SUPPORT_MOUSE_GESTURES
-    // Process mouse events as touches to be able to use mouse-gestures
-    GestureEvent gestureEvent = { 0 };
+    if (!platform.touchInputSupported) {
+        // Process mouse events as touches to be able to use mouse-gestures
+        GestureEvent gestureEvent = { 0 };
 
-    gestureEvent.touchAction = TOUCH_ACTION_MOVE;
+        gestureEvent.touchAction = TOUCH_ACTION_MOVE;
 
-    // Assign a pointer ID
-    gestureEvent.pointId[0] = 0;
+        // Assign a pointer ID
+        gestureEvent.pointId[0] = 0;
 
-    // Register touch points count
-    gestureEvent.pointCount = 1;
+        // Register touch points count
+        gestureEvent.pointCount = 1;
 
-    // Register touch points position, only one point registered
-    gestureEvent.position[0] = CORE.Input.Touch.position[0];
+        // Register touch points position, only one point registered
+        gestureEvent.position[0] = CORE.Input.Touch.position[0];
 
-    // Normalize gestureEvent.position[0] for CORE.Window.screen.width and CORE.Window.screen.height
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+        // Normalize gestureEvent.position[0] for CORE.Window.screen.width and CORE.Window.screen.height
+        gestureEvent.position[0].x /= (float)GetScreenWidth();
+        gestureEvent.position[0].y /= (float)GetScreenHeight();
 
-    // Gesture data is sent to gestures-system for processing
-    ProcessGestureEvent(gestureEvent);
+        // Gesture data is sent to gestures-system for processing
+        ProcessGestureEvent(gestureEvent);
+    }
 #endif
 }
 
@@ -2173,6 +2191,92 @@ static void CursorEnterCallback(GLFWwindow *window, int enter)
 {
     if (enter) CORE.Input.Mouse.cursorOnScreen = true;
     else CORE.Input.Mouse.cursorOnScreen = false;
+}
+
+// GLFW3: Touch callback, runs on touch events (trackpad/touchscreen)
+static void TouchCallback(GLFWwindow *window, int id, int action, double xpos, double ypos)
+{
+    // Find the slot for this touch id, or allocate a new one
+    int slot = -1;
+    for (int i = 0; i < CORE.Input.Touch.pointCount; i++)
+    {
+        if (CORE.Input.Touch.pointId[i] == id)
+        {
+            slot = i;
+            break;
+        }
+    }
+
+    if (action == GLFW_PRESS)
+    {
+        // New touch: assign a slot
+        if (slot == -1)
+        {
+            if (CORE.Input.Touch.pointCount < MAX_TOUCH_POINTS)
+            {
+                slot = CORE.Input.Touch.pointCount;
+                CORE.Input.Touch.pointCount++;
+            }
+            else return; // No slots available
+        }
+
+        CORE.Input.Touch.pointId[slot] = id;
+        CORE.Input.Touch.position[slot] = (Vector2){ (float)xpos, (float)ypos };
+        CORE.Input.Touch.currentTouchState[slot] = 1;
+    }
+    else if (action == GLFW_MOVE)
+    {
+        if (slot >= 0)
+        {
+            CORE.Input.Touch.position[slot] = (Vector2){ (float)xpos, (float)ypos };
+        }
+    }
+    else if (action == GLFW_RELEASE || action == GLFW_CANCEL)
+    {
+        if (slot >= 0)
+        {
+            CORE.Input.Touch.position[slot] = (Vector2){ (float)xpos, (float)ypos };
+            CORE.Input.Touch.currentTouchState[slot] = 0;
+        }
+    }
+
+#if SUPPORT_GESTURES_SYSTEM
+    GestureEvent gestureEvent = { 0 };
+    gestureEvent.pointCount = CORE.Input.Touch.pointCount;
+
+    // Map GLFW touch actions to gesture touch actions
+    if (action == GLFW_PRESS) gestureEvent.touchAction = TOUCH_ACTION_DOWN;
+    else if (action == GLFW_RELEASE) gestureEvent.touchAction = TOUCH_ACTION_UP;
+    else if (action == GLFW_MOVE) gestureEvent.touchAction = TOUCH_ACTION_MOVE;
+    else if (action == GLFW_CANCEL) gestureEvent.touchAction = TOUCH_ACTION_CANCEL;
+
+    for (int i = 0; (i < gestureEvent.pointCount) && (i < MAX_TOUCH_POINTS); i++)
+    {
+        gestureEvent.pointId[i] = CORE.Input.Touch.pointId[i];
+        gestureEvent.position[i] = CORE.Input.Touch.position[i];
+
+        // Normalize gesture position for screen dimensions
+        gestureEvent.position[i].x /= (float)GetScreenWidth();
+        gestureEvent.position[i].y /= (float)GetScreenHeight();
+    }
+
+    ProcessGestureEvent(gestureEvent);
+#endif
+
+    // On touch release/cancel, compact the touch point arrays
+    if ((action == GLFW_RELEASE || action == GLFW_CANCEL) && slot >= 0)
+    {
+        for (int i = slot; i < CORE.Input.Touch.pointCount - 1; i++)
+        {
+            CORE.Input.Touch.pointId[i] = CORE.Input.Touch.pointId[i + 1];
+            CORE.Input.Touch.position[i] = CORE.Input.Touch.position[i + 1];
+            CORE.Input.Touch.currentTouchState[i] = CORE.Input.Touch.currentTouchState[i + 1];
+            CORE.Input.Touch.previousTouchState[i] = CORE.Input.Touch.previousTouchState[i + 1];
+        }
+
+        CORE.Input.Touch.pointCount--;
+        if (CORE.Input.Touch.pointCount < 0) CORE.Input.Touch.pointCount = 0;
+    }
 }
 
 // GLFW3: Joystick connected/disconnected callback

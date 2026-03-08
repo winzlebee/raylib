@@ -47,6 +47,8 @@ GLFWbool _glfwConnectNull(int platformID, _GLFWplatform* platform)
         .setCursorMode = _glfwSetCursorModeNull,
         .setRawMouseMotion = _glfwSetRawMouseMotionNull,
         .rawMouseMotionSupported = _glfwRawMouseMotionSupportedNull,
+        .setTouchInput = _glfwSetTouchInputNull,
+        .touchInputSupported = _glfwTouchInputSupportedNull,
         .createCursor = _glfwCreateCursorNull,
         .createStandardCursor = _glfwCreateStandardCursorNull,
         .destroyCursor = _glfwDestroyCursorNull,
@@ -261,4 +263,3 @@ void _glfwTerminateNull(void)
     _glfwTerminateOSMesa();
     _glfwTerminateEGL();
 }
-

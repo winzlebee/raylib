@@ -342,6 +342,24 @@ void _glfwInputScroll(_GLFWwindow* window, double xoffset, double yoffset)
         window->callbacks.scroll((GLFWwindow*) window, xoffset, yoffset);
 }
 
+// Notifies shared code of a touch event
+//
+void _glfwInputTouch(_GLFWwindow* window, int id, int action, double x, double y)
+{
+    assert(window != NULL);
+    assert(x > -FLT_MAX);
+    assert(x < FLT_MAX);
+    assert(y > -FLT_MAX);
+    assert(y < FLT_MAX);
+
+    window->touches[id] = action;
+    window->touchPositions[id][0] = x;
+    window->touchPositions[id][1] = y;
+
+    if (window->callbacks.touch)
+        window->callbacks.touch((GLFWwindow*) window, id, action, x, y);
+}
+
 // Notifies shared code of a mouse button click event
 //
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int action, int mods)
@@ -694,6 +712,27 @@ GLFWAPI int glfwRawMouseMotionSupported(void)
     return _glfw.platform.rawMouseMotionSupported();
 }
 
+GLFWAPI void glfwGetTouchPos(GLFWwindow* handle, int tid, float* xpos, float* ypos)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
+
+    _GLFW_REQUIRE_INIT( );
+
+    if (xpos) *xpos = window->touchPositions[tid][0];
+    if (ypos) *ypos = window->touchPositions[tid][1];
+}
+
+GLFWAPI int glfwGetTouch(GLFWwindow* handle, int tid)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
+
+    _GLFW_REQUIRE_INIT_OR_RETURN(GLFW_RELEASE);
+
+    return (int) window->touches[tid];
+}
+
 GLFWAPI const char* glfwGetKeyName(int key, int scancode)
 {
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
@@ -1006,15 +1045,30 @@ GLFWAPI GLFWcursorenterfun glfwSetCursorEnterCallback(GLFWwindow* handle,
     return cbfun;
 }
 
-GLFWAPI GLFWscrollfun glfwSetScrollCallback(GLFWwindow* handle,
-                                            GLFWscrollfun cbfun)
+GLFWAPI GLFWscrollfun glfwSetScrollCallback(GLFWwindow* handle, GLFWscrollfun callback)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
     assert(window != NULL);
 
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
-    _GLFW_SWAP(GLFWscrollfun, window->callbacks.scroll, cbfun);
-    return cbfun;
+    _GLFW_SWAP(GLFWscrollfun, window->callbacks.scroll, callback);
+    return callback;
+}
+
+GLFWAPI GLFWtouchfun glfwSetTouchCallback(GLFWwindow* handle, GLFWtouchfun callback)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
+
+    _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
+    _GLFW_SWAP(GLFWtouchfun, window->callbacks.touch, callback);
+    return callback;
+}
+
+GLFWAPI int glfwTouchInputSupported(void)
+{
+    _GLFW_REQUIRE_INIT_OR_RETURN(GLFW_FALSE);
+    return _glfw.platform.touchInputSupported();
 }
 
 GLFWAPI GLFWdropfun glfwSetDropCallback(GLFWwindow* handle, GLFWdropfun cbfun)
@@ -1502,4 +1556,3 @@ GLFWAPI uint64_t glfwGetTimerFrequency(void)
     _GLFW_REQUIRE_INIT_OR_RETURN(0);
     return _glfwPlatformGetTimerFrequency();
 }
-

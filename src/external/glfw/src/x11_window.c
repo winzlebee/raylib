@@ -2780,6 +2780,12 @@ GLFWbool _glfwRawMouseMotionSupportedX11(void)
     return _glfw.x11.xi.available;
 }
 
+void _glfwSetTouchInputX11(_GLFWwindow* window, GLFWbool enabled)
+{
+    _glfwInputError(GLFW_FEATURE_UNIMPLEMENTED,
+                    "X11: Touch input not yet implemented");
+}
+
 void _glfwPollEventsX11(void)
 {
     drainEmptyEvents();
@@ -3355,4 +3361,3 @@ GLFWAPI const char* glfwGetX11SelectionString(void)
 }
 
 #endif // _GLFW_X11
-

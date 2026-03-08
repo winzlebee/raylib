@@ -2636,6 +2636,17 @@ GLFWbool _glfwRawMouseMotionSupportedWayland(void)
     return GLFW_TRUE;
 }
 
+void _glfwSetTouchInputWayland(_GLFWwindow* window, GLFWbool enabled)
+{
+    _glfwInputError(GLFW_FEATURE_UNIMPLEMENTED,
+                    "Wayland: Touch input not yet implemented");
+}
+
+GLFWbool _glfwTouchInputSupportedWayland(void)
+{
+    return GLFW_FALSE;
+}
+
 void _glfwPollEventsWayland(void)
 {
     double timeout = 0.0;
@@ -3306,4 +3317,3 @@ GLFWAPI struct wl_surface* glfwGetWaylandWindow(GLFWwindow* handle)
 }
 
 #endif // _GLFW_WAYLAND
-

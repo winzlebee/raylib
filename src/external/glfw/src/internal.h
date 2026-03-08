@@ -550,6 +550,9 @@ struct _GLFWwindow
     // Virtual cursor position when cursor is disabled
     double              virtualCursorPosX, virtualCursorPosY;
     GLFWbool            rawMouseMotion;
+    // Touch input. Persistent indices are managed by platforms
+    char                touches[GLFW_TOUCH_LAST + 1];
+    float               touchPositions[GLFW_TOUCH_LAST + 1][2];
 
     _GLFWcontext        context;
 
@@ -571,6 +574,7 @@ struct _GLFWwindow
         GLFWcharfun               character;
         GLFWcharmodsfun           charmods;
         GLFWdropfun               drop;
+        GLFWtouchfun              touch;
     } callbacks;
 
     // This is defined in platform.h
@@ -681,6 +685,11 @@ struct _GLFWplatform
     void (*setCursorMode)(_GLFWwindow*,int);
     void (*setRawMouseMotion)(_GLFWwindow*,GLFWbool);
     GLFWbool (*rawMouseMotionSupported)(void);
+    void (*setTouchInput)(_GLFWwindow*,GLFWbool);
+    GLFWbool (*touchInputSupported)(void);
+    int (*getTrackpadFingerCount)(_GLFWwindow*);
+    void (*getTrackpadFingerPos)(_GLFWwindow*,int,float*,float*);
+    GLFWbool (*getTrackpadFingerCountSupported)(void);
     GLFWbool (*createCursor)(_GLFWcursor*,const GLFWimage*,int,int);
     GLFWbool (*createStandardCursor)(_GLFWcursor*,int);
     void (*destroyCursor)(_GLFWcursor*);
@@ -922,6 +931,7 @@ void _glfwInputKey(_GLFWwindow* window,
 void _glfwInputChar(_GLFWwindow* window,
                     uint32_t codepoint, int mods, GLFWbool plain);
 void _glfwInputScroll(_GLFWwindow* window, double xoffset, double yoffset);
+void _glfwInputTouch(_GLFWwindow* window, int id, int action, double x, double y);
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int action, int mods);
 void _glfwInputCursorPos(_GLFWwindow* window, double xpos, double ypos);
 void _glfwInputCursorEnter(_GLFWwindow* window, GLFWbool entered);
@@ -1006,4 +1016,3 @@ int _glfw_max(int a, int b);
 void* _glfw_calloc(size_t count, size_t size);
 void* _glfw_realloc(void* pointer, size_t size);
 void _glfw_free(void* pointer);
-

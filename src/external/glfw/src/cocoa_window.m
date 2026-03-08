@@ -156,6 +156,36 @@ static int translateFlags(NSUInteger flags)
     return mods;
 }
 
+// Takes a touch and an array of stored touch identities
+// and maps them to their persistent numeric index, returning
+// -1 where no mapping exists
+//
+static int mapTouchIdentity(NSTouch *touch, id existing[GLFW_TOUCH_LAST + 1])
+{
+    for (int i = 0; i <= GLFW_TOUCH_LAST; i++) {
+        id cachedIdentity = (id) existing[i];
+
+        if (cachedIdentity != nil && [cachedIdentity isEqual:touch.identity]) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+// Get the first empty touch identity slot
+//
+static int findEmptyTouchIdentitySlot(id ids[GLFW_TOUCH_LAST + 1])
+{
+    for (int i = 0; i <= GLFW_TOUCH_LAST; i++) {
+        if (ids[i] == NULL) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 // Translates a macOS keycode to a GLFW keycode
 //
 static int translateKeyCocoa(unsigned int key)
@@ -351,9 +381,71 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
         [self updateTrackingAreas];
         [self registerForDraggedTypes:@[NSPasteboardTypeURL]];
+        [self setAcceptsTouchEvents:YES];
     }
 
     return self;
+}
+
+- (void)touchesBeganWithEvent:(NSEvent *)event
+{
+    [self updateTouches:event action:GLFW_PRESS];
+}
+
+- (void)touchesMovedWithEvent:(NSEvent *)event
+{
+    [self updateTouches:event action:GLFW_MOVE];
+}
+
+- (void)touchesEndedWithEvent:(NSEvent *)event
+{
+    [self updateTouches:event action:GLFW_RELEASE];
+}
+
+- (void)touchesCancelledWithEvent:(NSEvent *)event
+{
+    [self updateTouches:event action:GLFW_CANCEL];
+}
+
+- (void)updateTouches:(NSEvent *)event action:(int)action
+{
+    NSTouchPhase phase;
+    
+    switch (action) {
+        case GLFW_PRESS:   phase = NSTouchPhaseBegan;     break;
+        case GLFW_MOVE:    phase = NSTouchPhaseMoved | NSTouchPhaseStationary; break;
+        case GLFW_RELEASE: phase = NSTouchPhaseEnded;     break;
+        case GLFW_CANCEL:  phase = NSTouchPhaseCancelled; break;
+        default: return;
+    }
+
+    NSSet* touches = [event touchesMatchingPhase:phase inView:self];
+
+    const NSRect contentRect = [window->ns.view frame];
+
+    for (NSTouch* touch in touches)
+    {
+        int numericId = mapTouchIdentity(touch, window->ns.touches);
+
+        if (numericId == -1) {
+            numericId = findEmptyTouchIdentitySlot(window->ns.touches);
+            if (numericId == -1) continue;
+            window->ns.touches[numericId] = (void *)[touch.identity retain];
+        }
+
+        const NSPoint pos = [touch normalizedPosition];
+
+        const float xPos = (float) (pos.x * contentRect.size.width);
+        const float yPos = (float) ((1.0f - pos.y) * contentRect.size.height);
+
+        _glfwInputTouch(window, numericId, action, xPos, yPos);
+
+        if (action == GLFW_RELEASE || action == GLFW_CANCEL) {
+            id identity = (id) window->ns.touches[numericId];
+            [identity release];
+            window->ns.touches[numericId] = NULL;
+        }
+    }
 }
 
 - (void)dealloc
@@ -1513,6 +1605,15 @@ GLFWbool _glfwRawMouseMotionSupportedCocoa(void)
     return GLFW_FALSE;
 }
 
+void _glfwSetTouchInputCocoa(_GLFWwindow* window, GLFWbool enabled)
+{
+}
+
+GLFWbool _glfwTouchInputSupportedCocoa(void)
+{
+    return GLFW_TRUE;
+}
+
 void _glfwPollEventsCocoa(void)
 {
     @autoreleasepool {
@@ -2069,4 +2170,3 @@ GLFWAPI id glfwGetCocoaView(GLFWwindow* handle)
 }
 
 #endif // _GLFW_COCOA
-

@@ -128,6 +128,28 @@ typedef struct
 #endif
 #endif /*Windows 7*/
 
+#if WINVER < 0x0601
+#define WM_TOUCH 0x0240
+DECLARE_HANDLE(HTOUCHINPUT);
+typedef struct tagTOUCHINPUT
+{
+    LONG x;
+    LONG y;
+    HANDLE hSource;
+    DWORD dwID;
+    DWORD dwFlags;
+    DWORD dwMask;
+    DWORD dwTime;
+    ULONG_PTR dwExtraInfo;
+    DWORD cxContact;
+    DWORD cyContext;
+} TOUCHINPUT, *PTOUCHINPUT;
+#define TOUCH_COORD_TO_PIXEL(x) ((x) / 100)
+#define TOUCHEVENTF_MOVE    0x0001
+#define TOUCHEVENTF_DOWN    0x0002
+#define TOUCHEVENTF_UP      0x0004
+#endif /*Windows 7*/
+
 #if WINVER < 0x0600
 #define DWM_BB_ENABLE 0x00000001
 #define DWM_BB_BLURREGION 0x00000002
@@ -288,6 +310,10 @@ typedef BOOL (WINAPI * PFN_SetProcessDpiAwarenessContext)(HANDLE);
 typedef UINT (WINAPI * PFN_GetDpiForWindow)(HWND);
 typedef BOOL (WINAPI * PFN_AdjustWindowRectExForDpi)(LPRECT,DWORD,BOOL,DWORD,UINT);
 typedef int (WINAPI * PFN_GetSystemMetricsForDpi)(int,UINT);
+typedef BOOL (WINAPI * PFN_GetTouchInputInfo)(HTOUCHINPUT,UINT,PTOUCHINPUT,int);
+typedef BOOL (WINAPI * PFN_CloseTouchInputHandle)(HTOUCHINPUT);
+typedef BOOL (WINAPI * PFN_RegisterTouchWindow)(HWND,LONG);
+typedef BOOL (WINAPI * PFN_UnregisterTouchWindow)(HWND);
 #define SetProcessDPIAware _glfw.win32.user32.SetProcessDPIAware_
 #define ChangeWindowMessageFilterEx _glfw.win32.user32.ChangeWindowMessageFilterEx_
 #define EnableNonClientDpiScaling _glfw.win32.user32.EnableNonClientDpiScaling_
@@ -295,6 +321,10 @@ typedef int (WINAPI * PFN_GetSystemMetricsForDpi)(int,UINT);
 #define GetDpiForWindow _glfw.win32.user32.GetDpiForWindow_
 #define AdjustWindowRectExForDpi _glfw.win32.user32.AdjustWindowRectExForDpi_
 #define GetSystemMetricsForDpi _glfw.win32.user32.GetSystemMetricsForDpi_
+#define GetTouchInputInfo _glfw.win32.user32.GetTouchInputInfo_
+#define CloseTouchInputHandle _glfw.win32.user32.CloseTouchInputHandle_
+#define RegisterTouchWindow _glfw.win32.user32.RegisterTouchWindow_
+#define UnregisterTouchWindow _glfw.win32.user32.UnregisterTouchWindow_
 
 // dwmapi.dll function pointer typedefs
 typedef HRESULT (WINAPI * PFN_DwmIsCompositionEnabled)(BOOL*);
@@ -433,6 +463,10 @@ typedef struct _GLFWwindowWin32
     int                 lastCursorPosX, lastCursorPosY;
     // The last received high surrogate when decoding pairs of UTF-16 messages
     WCHAR               highSurrogate;
+
+    // Mapping of touches to their persistent ID
+    GLFWbool            mappedTouches[GLFW_TOUCH_LAST + 1];
+    DWORD               touches      [GLFW_TOUCH_LAST + 1];
 } _GLFWwindowWin32;
 
 // Win32-specific global data
@@ -482,7 +516,15 @@ typedef struct _GLFWlibraryWin32
         PFN_GetDpiForWindow             GetDpiForWindow_;
         PFN_AdjustWindowRectExForDpi    AdjustWindowRectExForDpi_;
         PFN_GetSystemMetricsForDpi      GetSystemMetricsForDpi_;
+        PFN_GetTouchInputInfo           GetTouchInputInfo_;
+        PFN_CloseTouchInputHandle       CloseTouchInputHandle_;
+        PFN_RegisterTouchWindow         RegisterTouchWindow_;
+        PFN_UnregisterTouchWindow       UnregisterTouchWindow_;
     } user32;
+
+    struct {
+        GLFWbool                        available;
+    } touch;
 
     struct {
         HINSTANCE                       instance;
@@ -576,10 +618,12 @@ void _glfwSetWindowMousePassthroughWin32(_GLFWwindow* window, GLFWbool enabled);
 float _glfwGetWindowOpacityWin32(_GLFWwindow* window);
 void _glfwSetWindowOpacityWin32(_GLFWwindow* window, float opacity);
 
-void _glfwSetRawMouseMotionWin32(_GLFWwindow *window, GLFWbool enabled);
+void _glfwSetRawMouseMotionWin32(_GLFWwindow* window, GLFWbool enabled);
 GLFWbool _glfwRawMouseMotionSupportedWin32(void);
+GLFWbool _glfwTouchInputSupportedWin32(void);
 
 void _glfwPollEventsWin32(void);
+
 void _glfwWaitEventsWin32(void);
 void _glfwWaitEventsTimeoutWin32(double timeout);
 void _glfwPostEmptyEventWin32(void);
@@ -624,4 +668,3 @@ void _glfwTerminateWGL(void);
 GLFWbool _glfwCreateContextWGL(_GLFWwindow* window,
                                const _GLFWctxconfig* ctxconfig,
                                const _GLFWfbconfig* fbconfig);
-

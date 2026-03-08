@@ -156,6 +156,9 @@ typedef struct _GLFWwindowNS
     // since the last cursor motion event was processed
     // This is kept to counteract Cocoa doing the same internally
     double          cursorWarpDeltaX, cursorWarpDeltaY;
+
+    // Cached internal mapping of NSTouch::identity to persistent ID
+    id              touches[8];
 } _GLFWwindowNS;
 
 // Cocoa-specific global data
@@ -248,8 +251,11 @@ float _glfwGetWindowOpacityCocoa(_GLFWwindow* window);
 void _glfwSetWindowOpacityCocoa(_GLFWwindow* window, float opacity);
 void _glfwSetWindowMousePassthroughCocoa(_GLFWwindow* window, GLFWbool enabled);
 
-void _glfwSetRawMouseMotionCocoa(_GLFWwindow *window, GLFWbool enabled);
+void _glfwSetRawMouseMotionCocoa(_GLFWwindow* window, GLFWbool enabled);
 GLFWbool _glfwRawMouseMotionSupportedCocoa(void);
+void _glfwSetTouchInputCocoa(_GLFWwindow* window, GLFWbool enabled);
+GLFWbool _glfwTouchInputSupportedCocoa(void);
+void _glfwGetTrackpadFingerPosCocoa(_GLFWwindow* window, int index, float* xpos, float* ypos);
 
 void _glfwPollEventsCocoa(void);
 void _glfwWaitEventsCocoa(void);
@@ -299,4 +305,3 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
                                 const _GLFWctxconfig* ctxconfig,
                                 const _GLFWfbconfig* fbconfig);
 void _glfwDestroyContextNSGL(_GLFWwindow* window);
-

@@ -529,6 +529,28 @@ static void maximizeWindowManually(_GLFWwindow* window)
                  SWP_NOACTIVATE | SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
+static int mapTouchId(DWORD id, const GLFWbool *mapped, const DWORD *mappings)
+{
+    for (int i = 0; i <= GLFW_TOUCH_LAST; ++i) {
+        if (mapped[i] && mappings[i] == id) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static int findEmptyTouchSlot(DWORD id, GLFWbool *mapped)
+{
+    for (int i = 0; i <= GLFW_TOUCH_LAST; ++i) {
+        if (!mapped[i]) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 // Window procedure for user-created windows
 //
 static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -811,6 +833,13 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         {
             int i, button, action;
 
+            if (window->touchInput)
+            {
+                // Skip emulated button events when touch input is enabled
+                if ((GetMessageExtraInfo() & 0xffffff00) == 0xff515700)
+                    break;
+            }
+
             if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP)
                 button = GLFW_MOUSE_BUTTON_LEFT;
             else if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP)
@@ -894,7 +923,9 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             window->win32.lastCursorPosX = x;
             window->win32.lastCursorPosY = y;
 
-            return 0;
+            // NOTE: WM_MOUSEMOVE messages must be passed on to DefWindowProc
+            //       for WM_TOUCH messages to be emitted
+            break;
         }
 
         case WM_INPUT:
@@ -965,6 +996,72 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 
             window->win32.lastCursorPosX += dx;
             window->win32.lastCursorPosY += dy;
+            break;
+        }
+
+        case WM_TOUCH:
+        {
+            TOUCHINPUT* inputs;
+            UINT count = LOWORD(wParam);
+
+            if (!_glfw.win32.touch.available)
+                return 0;
+
+            inputs = (TOUCHINPUT*) malloc(sizeof(TOUCHINPUT) * count);
+
+            if (GetTouchInputInfo((HTOUCHINPUT) lParam,
+                                        count, inputs, sizeof(TOUCHINPUT)))
+            {
+                UINT i;
+                int width, height, xpos, ypos;
+
+                _glfwPlatformGetWindowSize(window, &width, &height);
+                _glfwPlatformGetWindowPos(window, &xpos, &ypos);
+
+                for (i = 0;  i < count;  i++)
+                {
+                    int action;
+                    POINT pos;
+
+                    const int persistentId = inputs[i].dwID;
+                    int id = mapTouchId(persistentId, window->win32.mappedTouches,
+                                        window->win32.touches);
+
+                    if (id == -1) {
+                        id = findEmptyTouchSlot(persistentId,
+                                                window->win32.mappedTouches);
+
+                        if (id == -1) continue;
+
+                        window->win32.touches[id] = persistentId;
+                        window->win32.mappedTouches[id] = true;
+                    }
+
+                    pos.x = TOUCH_COORD_TO_PIXEL(inputs[i].x) - xpos;
+                    pos.y = TOUCH_COORD_TO_PIXEL(inputs[i].y) - ypos;
+
+                    // Discard any points that lie outside of the client area
+                    if (pos.x < 0 || pos.x >= width ||
+                        pos.y < 0 || pos.y >= height)
+                    {
+                        continue;
+                    }
+
+                    if (inputs[i].dwFlags & TOUCHEVENTF_DOWN)
+                        action = GLFW_PRESS;
+                    else if (inputs[i].dwFlags & TOUCHEVENTF_UP) {
+                        action = GLFW_RELEASE;
+                        window->win32.mappedTouches[id] = false;
+                    } else
+                        action = GLFW_MOVE;
+
+                    _glfwInputTouch(window, id, action, pos.x, pos.y);
+                }
+
+                CloseTouchInputHandle((HTOUCHINPUT) lParam);
+            }
+
+            free(inputs);
             break;
         }
 
@@ -2099,6 +2196,22 @@ GLFWbool _glfwRawMouseMotionSupportedWin32(void)
     return GLFW_TRUE;
 }
 
+void _glfwSetTouchInputWin32(_GLFWwindow* window, int enabled)
+{
+    if (!_glfw.win32.touch.available)
+        return;
+
+    if (enabled)
+        RegisterTouchWindow(window->win32.handle, 0);
+    else
+        UnregisterTouchWindow(window->win32.handle);
+}
+
+GLFWbool _glfwTouchInputSupportedWin32(void)
+{
+    return _glfw.win32.touch.available;
+}
+
 void _glfwPollEventsWin32(void)
 {
     MSG msg;
@@ -2591,4 +2704,3 @@ GLFWAPI HWND glfwGetWin32Window(GLFWwindow* handle)
 }
 
 #endif // _GLFW_WIN32
-

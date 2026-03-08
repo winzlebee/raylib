@@ -648,6 +648,8 @@ void _glfwSetWindowMousePassthroughWayland(_GLFWwindow* window, GLFWbool enabled
 
 void _glfwSetRawMouseMotionWayland(_GLFWwindow* window, GLFWbool enabled);
 GLFWbool _glfwRawMouseMotionSupportedWayland(void);
+void _glfwSetTouchInputWayland(_GLFWwindow* window, GLFWbool enabled);
+GLFWbool _glfwTouchInputSupportedWayland(void);
 
 void _glfwPollEventsWayland(void);
 void _glfwWaitEventsWayland(void);
@@ -688,4 +690,3 @@ void _glfwUpdateBufferScaleFromOutputsWayland(_GLFWwindow* window);
 
 void _glfwAddSeatListenerWayland(struct wl_seat* seat);
 void _glfwAddDataDeviceListenerWayland(struct wl_data_device* device);
-

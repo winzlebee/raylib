@@ -438,6 +438,8 @@ GLFWbool _glfwConnectWayland(int platformID, _GLFWplatform* platform)
         .setCursorMode = _glfwSetCursorModeWayland,
         .setRawMouseMotion = _glfwSetRawMouseMotionWayland,
         .rawMouseMotionSupported = _glfwRawMouseMotionSupportedWayland,
+        .setTouchInput = _glfwSetTouchInputWayland,
+        .touchInputSupported = _glfwTouchInputSupportedWayland,
         .createCursor = _glfwCreateCursorWayland,
         .createStandardCursor = _glfwCreateStandardCursorWayland,
         .destroyCursor = _glfwDestroyCursorWayland,
@@ -1001,4 +1003,3 @@ void _glfwTerminateWayland(void)
 }
 
 #endif // _GLFW_WAYLAND
-
