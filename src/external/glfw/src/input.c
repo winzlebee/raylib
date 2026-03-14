@@ -594,6 +594,8 @@ GLFWAPI int glfwGetInputMode(GLFWwindow* handle, int mode)
             return window->lockKeyMods;
         case GLFW_RAW_MOUSE_MOTION:
             return window->rawMouseMotion;
+        case GLFW_TOUCH:
+            return window->touchInput;
     }
 
     _glfwInputError(GLFW_INVALID_ENUM, "Invalid input mode 0x%08X", mode);
@@ -699,6 +701,24 @@ GLFWAPI void glfwSetInputMode(GLFWwindow* handle, int mode, int value)
 
             window->rawMouseMotion = value;
             _glfw.platform.setRawMouseMotion(window, value);
+            return;
+        }
+
+        case GLFW_TOUCH:
+        {
+            if (!_glfw.platform.touchInputSupported())
+            {
+                _glfwInputError(GLFW_PLATFORM_ERROR,
+                                "Touch input is not supported on this system");
+                return;
+            }
+
+            value = value ? GLFW_TRUE : GLFW_FALSE;
+            if (window->touchInput == value)
+                return;
+
+            window->touchInput = value;
+            _glfw.platform.setTouchInput(window, value);
             return;
         }
     }

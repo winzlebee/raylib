@@ -1167,6 +1167,27 @@ void DisableCursor(void)
     CORE.Input.Mouse.cursorLocked = true;
 }
 
+// Enables touch input
+void EnableTouch(void)
+{
+    if (platform.touchInputSupported)
+        glfwSetInputMode(platform.handle, GLFW_TOUCH, GLFW_TRUE);
+}
+
+// Disables touch input
+void DisableTouch(void)
+{
+    if (platform.touchInputSupported)
+        glfwSetInputMode(platform.handle, GLFW_TOUCH, GLFW_FALSE);
+}
+
+// Check if touch input is enabled
+bool IsTouchEnabled(void)
+{
+    return platform.touchInputSupported &&
+           glfwGetInputMode(platform.handle, GLFW_TOUCH);
+}
+
 // Swap back buffer with front buffer (screen drawing)
 void SwapScreenBuffer(void)
 {

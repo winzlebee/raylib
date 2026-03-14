@@ -551,6 +551,7 @@ struct _GLFWwindow
     double              virtualCursorPosX, virtualCursorPosY;
     GLFWbool            rawMouseMotion;
     // Touch input. Persistent indices are managed by platforms
+    GLFWbool            touchInput;
     char                touches[GLFW_TOUCH_LAST + 1];
     float               touchPositions[GLFW_TOUCH_LAST + 1][2];
 

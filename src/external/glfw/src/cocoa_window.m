@@ -381,7 +381,6 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
         [self updateTrackingAreas];
         [self registerForDraggedTypes:@[NSPasteboardTypeURL]];
-        [self setAcceptsTouchEvents:YES];
     }
 
     return self;
@@ -1607,6 +1606,9 @@ GLFWbool _glfwRawMouseMotionSupportedCocoa(void)
 
 void _glfwSetTouchInputCocoa(_GLFWwindow* window, GLFWbool enabled)
 {
+    @autoreleasepool {
+        [window->ns.view setAcceptsTouchEvents:enabled ? YES : NO];
+    }
 }
 
 GLFWbool _glfwTouchInputSupportedCocoa(void)
